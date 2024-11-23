@@ -1,0 +1,74 @@
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  AZURE_SQL_CONNECTION_STRING: 'dbserver7.mysql.database.azure.com'
+  SQL_USERNAME: 'rootdb'
+  SQL_PASSWORD: 'reddy@2000' 
+  SQL_DATABASE: 'firstdb'
+
+steps:
+- task: UsePythonVersion@0
+  inputs:
+    versionSpec: '3.x'
+
+- script: |
+    pip install mysql-connector-python
+  displayName: 'Install MySQL Connector'
+
+- script: |
+    python -c "
+    import mysql.connector;
+    conn = mysql.connector.connect(
+        host='${{variables.AZURE_SQL_CONNECTION_STRING}}',
+        user='${{variables.SQL_USERNAME}}',
+        password='${{variables.SQL_PASSWORD}}',
+        database='${{variables.SQL_DATABASE}}'
+    );
+    cursor = conn.cursor();
+    with open('create_table.sql', 'r') as file:
+        cursor.execute(file.read());
+    conn.close();
+    "
+  displayName: 'Run create_table.sql'
+
+- script: |
+    python -c "
+    import mysql.connector;
+    conn = mysql.connector.connect(
+        host='${{variables.AZURE_SQL_CONNECTION_STRING}}',
+        user='${{variables.SQL_USERNAME}}',
+        password='${{variables.SQL_PASSWORD}}',
+        database='${{variables.SQL_DATABASE}}'
+    );
+    cursor = conn.cursor();
+    with open('update_table.sql', 'r') as file:
+        cursor.execute(file.read());
+    conn.close();
+    "
+  displayName: 'Run update_table.sql'
+
+- script: |
+    python -c "
+    import mysql.connector;
+    conn = mysql.connector.connect(
+        host='$(AZURE_SQL_CONNECTION_STRING)',
+        user='$(SQL_USERNAME)',
+        password='$(SQL_PASSWORD)',
+        database='$(SQL_DATABASE)'
+    );
+    cursor = conn.cursor();
+    cursor.execute(\"SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'assignment4' AND COLUMN_NAME = 'newcolumn';\");
+    result = cursor.fetchone();
+    if result:
+        print('Column exists: Validation successful.');
+    else:
+        raise Exception('Validation failed: Column does not exist.');
+    conn.close();
+    "
+  displayName: 'Validate schema update'
